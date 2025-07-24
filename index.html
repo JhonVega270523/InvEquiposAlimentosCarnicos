@@ -180,6 +180,61 @@
             color: #666;
         }
 
+        /* PAGINATION STYLES */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .pagination button {
+            background-color: var(--nutresa-azul);
+            color: var(--nutresa-blanco);
+            padding: 8px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+        .pagination button:hover:not(.active) {
+            background-color: #0056b3;
+        }
+        .pagination button.active {
+            background-color: var(--nutresa-verde);
+            font-weight: bold;
+            cursor: default;
+        }
+        .pagination button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        /* SCROLL TO TOP BUTTON */
+        #scrollToTopBtn {
+            display: none; /* Hidden by default */
+            position: fixed; /* Fixed position */
+            bottom: 30px; /* Place the button at the bottom of the page */
+            right: 30px; /* Place the button at the right */
+            z-index: 99; /* Make sure it does not overlap */
+            border: none; /* Remove borders */
+            outline: none; /* Remove outline */
+            background-color: var(--nutresa-verde); /* Set a background color */
+            color: white; /* Text color */
+            cursor: pointer; /* Add a mouse pointer on hover */
+            padding: 15px; /* Some padding */
+            border-radius: 10px; /* Rounded corners */
+            font-size: 18px; /* Increase font size */
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: background-color 0.3s, opacity 0.3s;
+        }
+
+        #scrollToTopBtn:hover {
+            background-color: #218838; /* Darker green on hover */
+        }
+
+
         /* Media Queries para responsividad */
         @media (max-width: 768px) {
             body {
@@ -219,6 +274,12 @@
             th, td {
                 padding: 6px;
             }
+            #scrollToTopBtn {
+                bottom: 20px;
+                right: 20px;
+                padding: 12px;
+                font-size: 16px;
+            }
         }
 
         @media (max-width: 480px) {
@@ -240,6 +301,10 @@
             .export-import-buttons button {
                 font-size: 14px;
                 padding: 8px 12px;
+            }
+            .pagination button {
+                padding: 6px 10px;
+                font-size: 12px;
             }
         }
     </style>
@@ -315,20 +380,23 @@
         <table id="inventarioTable">
             <thead>
                 <tr>
-                    <th>Tipo</th>
+                    <th>N°</th> <th>Tipo</th>
                     <th>Nombre de Equipo</th>
                     <th>Marca</th>
                     <th>Modelo</th>
                     <th>Serial/Activo Fijo</th>
                     <th>Ubicación</th>
                     <th>Estado</th>
-                    <th>Fecha y Hora Registro</th> <th>Observaciones</th>
+                    <th>Fecha y Hora Registro</th>
+                    <th>Observaciones</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
             <tbody>
             </tbody>
         </table>
+        <div class="pagination" id="paginationControls">
+            </div>
         <div class="export-import-buttons">
             <button id="importExcelBtn" class="import-btn">Importar desde Excel</button>
             <input type="file" id="excelFileInput" accept=".xlsx, .xls" style="display: none;">
@@ -338,6 +406,8 @@
     <h6>Desarrollado por Jhon Loaiza</h6>
     </div>
 
+    <button onclick="topFunction()" id="scrollToTopBtn" title="Ir arriba">&#9650;</button>
+
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const equipoForm = document.getElementById('equipoForm');
@@ -346,18 +416,103 @@
             const importExcelBtn = document.getElementById('importExcelBtn');
             const excelFileInput = document.getElementById('excelFileInput');
             const searchInput = document.getElementById('searchInput');
+            const paginationControls = document.getElementById('paginationControls');
+            const scrollToTopBtn = document.getElementById('scrollToTopBtn');
 
             // --- Define tu PIN de seguridad aquí ---
             const passwordForActions = "S0p0rt3"; // ¡CAMBIA ESTE PIN por uno más seguro!
             // ------------------------------------
 
-            // Cargar datos guardados si existen
             let inventario = JSON.parse(localStorage.getItem('inventarioSistemas')) || [];
-            inventario.forEach((equipo, index) => addEquipoToTable(equipo, index));
+            let currentPage = 1;
+            const itemsPerPage = 20;
+            let filteredInventario = []; // Para manejar la paginación después de un filtro
+
+            // Funciones de Paginación
+            function renderTable() {
+                inventarioTableBody.innerHTML = '';
+                // Filtrar el inventario primero
+                const filterText = searchInput.value.toLowerCase();
+                if (filterText) {
+                    filteredInventario = inventario.filter(equipo => {
+                        return Object.values(equipo).some(value =>
+                            String(value).toLowerCase().includes(filterText)
+                        );
+                    });
+                } else {
+                    filteredInventario = [...inventario]; // Copia completa si no hay filtro
+                }
+
+                const totalPages = Math.ceil(filteredInventario.length / itemsPerPage);
+                if (currentPage > totalPages && totalPages > 0) {
+                    currentPage = totalPages; // Ajusta la página si se eliminan elementos
+                } else if (totalPages === 0) {
+                    currentPage = 1; // Si no hay elementos, volver a la página 1
+                }
+
+                const startIndex = (currentPage - 1) * itemsPerPage;
+                const endIndex = startIndex + itemsPerPage;
+                const paginatedItems = filteredInventario.slice(startIndex, endIndex);
+
+                paginatedItems.forEach((equipo, relativeIndex) => {
+                    // El número de enumerado real es el índice de la tabla + 1 + el inicio de la página
+                    addEquipoToTable(equipo, startIndex + relativeIndex);
+                });
+                renderPaginationButtons(totalPages);
+            }
+
+            function renderPaginationButtons(totalPages) {
+                paginationControls.innerHTML = '';
+
+                // Botón Anterior
+                const prevButton = document.createElement('button');
+                prevButton.textContent = 'Anterior';
+                prevButton.disabled = currentPage === 1;
+                prevButton.addEventListener('click', () => {
+                    currentPage--;
+                    renderTable();
+                });
+                paginationControls.appendChild(prevButton);
+
+                // Botones de Números de Página
+                const maxPageButtons = 5; // Número máximo de botones de página a mostrar
+                let startPage = Math.max(1, currentPage - Math.floor(maxPageButtons / 2));
+                let endPage = Math.min(totalPages, startPage + maxPageButtons - 1);
+
+                if (endPage - startPage + 1 < maxPageButtons) {
+                    startPage = Math.max(1, endPage - maxPageButtons + 1);
+                }
+
+                for (let i = startPage; i <= endPage; i++) {
+                    const pageButton = document.createElement('button');
+                    pageButton.textContent = i;
+                    if (i === currentPage) {
+                        pageButton.classList.add('active');
+                    }
+                    pageButton.addEventListener('click', () => {
+                        currentPage = i;
+                        renderTable();
+                    });
+                    paginationControls.appendChild(pageButton);
+                }
+
+                // Botón Siguiente
+                const nextButton = document.createElement('button');
+                nextButton.textContent = 'Siguiente';
+                nextButton.disabled = currentPage === totalPages || totalPages === 0;
+                nextButton.addEventListener('click', () => {
+                    currentPage++;
+                    renderTable();
+                });
+                paginationControls.appendChild(nextButton);
+            }
+
+            // Llamada inicial para cargar la tabla y la paginación
+            renderTable();
 
             // Evento para agregar nuevo equipo (SIN protección de PIN)
             equipoForm.addEventListener('submit', (e) => {
-                e.preventDefault(); // Evita el envío del formulario por defecto
+                e.preventDefault();
 
                 const now = new Date();
                 const fechaRegistro = now.toLocaleString('es-CO', {
@@ -377,37 +532,24 @@
                     serial: document.getElementById('serial').value,
                     ubicacion: document.getElementById('ubicacion').value,
                     estado: document.getElementById('estado').value,
-                    fechaRegistro: fechaRegistro, // Agregado automáticamente
+                    fechaRegistro: fechaRegistro,
                     observaciones: document.getElementById('observaciones').value
                 };
 
                 inventario.push(newEquipo);
                 saveInventario();
-                addEquipoToTable(newEquipo, inventario.length - 1);
+                // Al agregar, vamos a la última página si es necesario
+                currentPage = Math.ceil(inventario.length / itemsPerPage);
+                renderTable();
                 equipoForm.reset();
-                filterTable(); // Para asegurar que la tabla se actualice y filtre correctamente
-                alert("¡Equipo agregado exitosamente!"); // Confirmación
+                alert("¡Equipo agregado exitosamente!");
             });
 
             // --- Funcionalidad de Búsqueda ---
-            searchInput.addEventListener('input', filterTable);
-
-            function filterTable() {
-                const filterText = searchInput.value.toLowerCase();
-                const rows = inventarioTableBody.querySelectorAll('tr');
-
-                rows.forEach(row => {
-                    const cells = Array.from(row.cells);
-                    // Excluye la última celda (acciones) de la búsqueda
-                    const rowContent = cells.slice(0, -1).map(cell => cell.textContent.toLowerCase()).join(' ');
-
-                    if (rowContent.includes(filterText)) {
-                        row.style.display = '';
-                    } else {
-                        row.style.display = 'none';
-                    }
-                });
-            }
+            searchInput.addEventListener('input', () => {
+                currentPage = 1; // Resetear a la primera página en cada búsqueda
+                renderTable();
+            });
             // --- Fin Funcionalidad de Búsqueda ---
 
             // --- Funcionalidad de Exportar a Excel con formato (protegido por PIN) ---
@@ -417,23 +559,30 @@
                 if (enteredPin === passwordForActions) {
                     const table = document.getElementById('inventarioTable');
                     const headerRow = table.querySelector('thead tr');
-                    const bodyRows = inventarioTableBody.querySelectorAll('tr');
+                    // Usar el inventario completo, no solo lo que está en la página actual
+                    const dataToExport = filteredInventario; // Exporta los resultados del filtro actual
 
-                    const headersData = Array.from(headerRow.cells).slice(0, -1).map(th => th.innerText);
-
-                    let bodyData = [];
-                    bodyRows.forEach((row) => {
-                        if (row.style.display !== 'none') {
-                            const cells = Array.from(row.cells);
-                            const rowData = cells.slice(0, -1).map(cell => cell.innerText);
-                            bodyData.push(rowData);
-                        }
-                    });
-
-                    if (bodyData.length === 0) {
+                    if (dataToExport.length === 0) {
                         alert("No hay datos visibles para exportar.");
                         return;
                     }
+
+                    // Preparamos los encabezados excluyendo 'N°' y 'Acciones'
+                    const headersData = Array.from(headerRow.cells)
+                                        .filter(th => th.textContent !== 'N°' && th.textContent !== 'Acciones')
+                                        .map(th => th.innerText);
+
+                    let bodyData = dataToExport.map(equipo => [
+                        equipo.tipo,
+                        equipo.nombreEquipo,
+                        equipo.marca,
+                        equipo.modelo,
+                        equipo.serial,
+                        equipo.ubicacion,
+                        equipo.estado,
+                        equipo.fechaRegistro,
+                        equipo.observaciones
+                    ]);
 
                     let colWidths = [];
                     headersData.forEach((headerText, colIndex) => {
@@ -524,79 +673,95 @@
                 if (file) {
                     const reader = new FileReader();
                     reader.onload = (e) => {
-                        const data = new Uint8Array(e.target.result);
-                        const workbook = XLSX.read(data, { type: 'array' });
-                        const sheetName = workbook.SheetNames[0];
-                        const worksheet = workbook.Sheets[sheetName];
-                        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                        try {
+                            const data = new Uint8Array(e.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            const sheetName = workbook.SheetNames[0];
+                            const worksheet = workbook.Sheets[sheetName];
+                            const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-                        if (json.length === 0) {
-                            alert("El archivo Excel está vacío.");
-                            return;
-                        }
-
-                        // Asumiendo que la primera fila son los encabezados, ajusta según tu estructura de Excel
-                        const headers = json[0];
-                        const expectedHeaders = ["Tipo", "Nombre de Equipo", "Marca", "Modelo", "Serial/Activo Fijo", "Ubicación", "Estado", "Fecha y Hora Registro", "Observaciones"];
-
-                        // Validar encabezados (opcional pero recomendado)
-                        const isValidHeader = expectedHeaders.every(header => headers.includes(header));
-                        if (!isValidHeader) {
-                            alert("Los encabezados del archivo Excel no coinciden con el formato esperado. Asegúrate de que las columnas sean: " + expectedHeaders.join(", "));
-                            return;
-                        }
-
-                        // Mapear los datos del JSON a la estructura de tu inventario
-                        const importedData = [];
-                        for (let i = 1; i < json.length; i++) { // Empezar desde la segunda fila (después de los encabezados)
-                            const row = json[i];
-                            const equipo = {};
-                            headers.forEach((header, index) => {
-                                // Normaliza los nombres de las propiedades para que coincidan con tu objeto 'equipo'
-                                let key;
-                                if (header === "Nombre de Equipo") key = "nombreEquipo";
-                                else if (header === "Serial/Activo Fijo") key = "serial";
-                                else if (header === "Fecha y Hora Registro") key = "fechaRegistro";
-                                else if (header === "Observaciones") key = "observaciones";
-                                else key = header.toLowerCase(); // Para "Tipo", "Marca", "Modelo", "Ubicación", "Estado"
-
-                                equipo[key] = row[index] !== undefined ? String(row[index]) : ''; // Convertir a string
-                            });
-                            // Asegura que todos los campos obligatorios existan, si no, pon un valor predeterminado
-                            equipo.tipo = equipo.tipo || '';
-                            equipo.nombreEquipo = equipo.nombreEquipo || '';
-                            equipo.marca = equipo.marca || '';
-                            equipo.modelo = equipo.modelo || '';
-                            equipo.serial = equipo.serial || '';
-                            equipo.ubicacion = equipo.ubicacion || '';
-                            equipo.estado = equipo.estado || 'Operativo'; // Valor predeterminado
-                            equipo.observaciones = equipo.observaciones || '';
-                            // Si la fecha de registro no viene en el Excel, se puede generar al importar
-                            if (!equipo.fechaRegistro || equipo.fechaRegistro === '') {
-                                const now = new Date();
-                                equipo.fechaRegistro = now.toLocaleString('es-CO', {
-                                    year: 'numeric',
-                                    month: '2-digit',
-                                    day: '2-digit',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    second: '2-digit'
-                                });
+                            if (json.length === 0) {
+                                alert("El archivo Excel está vacío.");
+                                return;
                             }
-                            importedData.push(equipo);
-                        }
 
-                        // Puedes elegir si fusionar o reemplazar el inventario existente
-                        const confirmImport = confirm("¿Quieres agregar estos " + importedData.length + " equipos al inventario actual?\n(Cancelar reemplazará el inventario actual)");
-                        if (confirmImport) {
-                            inventario = inventario.concat(importedData); // Fusionar
-                        } else {
-                            inventario = importedData; // Reemplazar
-                        }
+                            const headers = json[0].map(h => String(h).trim()); // Obtener y limpiar los encabezados del Excel
+                            const expectedHeaders = [
+                                "Tipo", "Nombre de Equipo", "Marca", "Modelo",
+                                "Serial/Activo Fijo", "Ubicación", "Estado",
+                                "Fecha y Hora Registro", "Observaciones"
+                            ];
 
-                        saveInventario();
-                        renderTable();
-                        alert("¡Datos importados exitosamente!");
+                            // Validar que todos los encabezados esperados estén presentes
+                            const missingHeaders = expectedHeaders.filter(header => !headers.includes(header));
+                            if (missingHeaders.length > 0) {
+                                alert(`Error de formato: Faltan las siguientes columnas en el archivo Excel: ${missingHeaders.join(', ')}.\nPor favor, asegúrate de que el archivo tenga todos los encabezados correctos.`);
+                                return;
+                            }
+
+                            const importedData = [];
+                            for (let i = 1; i < json.length; i++) {
+                                const row = json[i];
+                                const equipo = {};
+
+                                equipo.tipo = String(row[headers.indexOf("Tipo")] || '');
+                                equipo.nombreEquipo = String(row[headers.indexOf("Nombre de Equipo")] || '');
+                                equipo.marca = String(row[headers.indexOf("Marca")] || '');
+                                equipo.modelo = String(row[headers.indexOf("Modelo")] || '');
+                                equipo.serial = String(row[headers.indexOf("Serial/Activo Fijo")] || '');
+                                equipo.ubicacion = String(row[headers.indexOf("Ubicación")] || '');
+                                equipo.estado = String(row[headers.indexOf("Estado")] || 'Operativo');
+                                equipo.observaciones = String(row[headers.indexOf("Observaciones")] || '');
+
+                                let fechaHoraRegistroExcel = row[headers.indexOf("Fecha y Hora Registro")];
+                                if (fechaHoraRegistroExcel) {
+                                    if (typeof fechaHoraRegistroExcel === 'number') {
+                                        const excelDate = new Date(Date.UTC(0, 0, fechaHoraRegistroExcel - 1));
+                                        equipo.fechaRegistro = excelDate.toLocaleString('es-CO', {
+                                            year: 'numeric',
+                                            month: '2-digit',
+                                            day: '2-digit',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            second: '2-digit'
+                                        });
+                                    } else {
+                                        equipo.fechaRegistro = String(fechaHoraRegistroExcel);
+                                    }
+                                } else {
+                                    const now = new Date();
+                                    equipo.fechaRegistro = now.toLocaleString('es-CO', {
+                                        year: 'numeric',
+                                        month: '2-digit',
+                                        day: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit'
+                                    });
+                                }
+
+                                importedData.push(equipo);
+                            }
+
+                            if (importedData.length > 0) {
+                                const confirmImport = confirm(`¿Quieres agregar estos ${importedData.length} equipos al inventario actual?\n(Cancelar reemplazará el inventario actual con estos datos)`);
+                                if (confirmImport) {
+                                    inventario = inventario.concat(importedData);
+                                } else {
+                                    inventario = importedData;
+                                }
+                                saveInventario();
+                                currentPage = 1; // Resetear a la primera página después de importar
+                                renderTable();
+                                alert("¡Datos importados exitosamente!");
+                            } else {
+                                alert("No se encontraron equipos válidos para importar en el archivo Excel.");
+                            }
+
+                        } catch (error) {
+                            console.error("Error al procesar el archivo Excel:", error);
+                            alert("Hubo un error al leer el archivo Excel. Asegúrate de que es un archivo .xlsx o .xls válido y que el formato de los datos es correcto.");
+                        }
                     };
                     reader.readAsArrayBuffer(file);
                 }
@@ -604,19 +769,17 @@
             // --- Fin Funcionalidad de Importar desde Excel ---
 
 
-            function addEquipoToTable(equipo, index) {
-                let row;
-                if (inventarioTableBody.rows[index]) {
-                    row = inventarioTableBody.rows[index];
-                } else {
-                    row = inventarioTableBody.insertRow();
-                }
+            function addEquipoToTable(equipo, globalIndex) {
+                // globalIndex es el índice del equipo en el array 'filteredInventario'
+                // El número de enumerado para mostrar es globalIndex + 1
+                const row = inventarioTableBody.insertRow();
+                row.dataset.index = globalIndex; // Guardamos el índice global para futuras referencias
 
-                row.dataset.index = index;
-                row.innerHTML = '';
+                // Celda del enumerado
+                const numCell = row.insertCell();
+                numCell.textContent = globalIndex + 1; // Muestra el número consecutivo
 
                 const editableFields = ['nombreEquipo', 'marca', 'modelo', 'ubicacion', 'observaciones'];
-                // Incluye 'fechaRegistro' en la lista de campos a mostrar
                 const fields = ['tipo', 'nombreEquipo', 'marca', 'modelo', 'serial', 'ubicacion', 'estado', 'fechaRegistro', 'observaciones'];
 
                 fields.forEach(field => {
@@ -624,7 +787,7 @@
                     cell.textContent = equipo[field];
                     if (editableFields.includes(field)) {
                         cell.setAttribute('contenteditable', 'true');
-                        cell.addEventListener('blur', (event) => updateCellValue(event, index, field));
+                        cell.addEventListener('blur', (event) => updateCellValue(event, globalIndex, field));
                     } else if (field === 'estado') {
                         cell.addEventListener('click', (event) => {
                             if (cell.querySelector('select')) {
@@ -644,8 +807,12 @@
                             });
 
                             select.addEventListener('change', (e) => {
-                                inventario[index].estado = e.target.value;
-                                saveInventario();
+                                // Encuentra el índice real en el inventario no filtrado si es necesario
+                                const realIndex = inventario.findIndex(item => item === filteredInventario[globalIndex]);
+                                if (realIndex !== -1) {
+                                    inventario[realIndex].estado = e.target.value;
+                                    saveInventario();
+                                }
                                 cell.textContent = e.target.value;
                                 cell.removeAttribute('contenteditable');
                                 alert("Estado actualizado exitosamente.");
@@ -663,10 +830,7 @@
                             select.focus();
                         });
                         cell.setAttribute('contenteditable', 'false');
-                    } else if (field === 'fechaRegistro') { // La fecha de registro no es editable
-                        cell.setAttribute('contenteditable', 'false');
-                    }
-                    else {
+                    } else {
                         cell.setAttribute('contenteditable', 'false');
                     }
                 });
@@ -677,33 +841,38 @@
                 const deleteButton = document.createElement('button');
                 deleteButton.textContent = 'Eliminar';
                 deleteButton.classList.add('delete-btn');
-                deleteButton.addEventListener('click', () => deleteEquipo(index)); // Llama a la función de eliminar con PIN
+                deleteButton.addEventListener('click', () => deleteEquipo(globalIndex));
                 actionsCell.appendChild(deleteButton);
             }
 
-            // Función para actualizar el valor de una celda (SIN protección de PIN)
-            function updateCellValue(event, index, field) {
+            function updateCellValue(event, globalIndex, field) {
                 const newValue = event.target.textContent.trim();
-                const originalValue = inventario[index][field];
+                // Necesitamos el índice real en el array 'inventario'
+                const realIndex = inventario.findIndex(item => item === filteredInventario[globalIndex]);
 
-                if (originalValue !== newValue) {
-                    inventario[index][field] = newValue;
+                if (realIndex !== -1 && inventario[realIndex][field] !== newValue) {
+                    inventario[realIndex][field] = newValue;
                     saveInventario();
                     alert("Campo actualizado exitosamente.");
                 }
             }
 
-            // Función para eliminar equipo (protegida por PIN)
-            function deleteEquipo(index) {
+            function deleteEquipo(globalIndex) {
                 if (confirm('¿Estás seguro de que quieres eliminar este equipo?')) {
                     const enteredPin = prompt("Introduce el PIN para eliminar el equipo:");
 
                     if (enteredPin === passwordForActions) {
-                        inventario.splice(index, 1);
-                        saveInventario();
-                        renderTable();
-                        filterTable();
-                        alert("¡Equipo eliminado exitosamente!");
+                        // Primero, encuentra el elemento real en el inventario no filtrado
+                        const realIndex = inventario.findIndex(item => item === filteredInventario[globalIndex]);
+
+                        if (realIndex !== -1) {
+                            inventario.splice(realIndex, 1);
+                            saveInventario();
+                            renderTable(); // Vuelve a renderizar toda la tabla para ajustar la paginación y números
+                            alert("¡Equipo eliminado exitosamente!");
+                        } else {
+                            alert("Error: El equipo no se encontró en el inventario.");
+                        }
                     } else if (enteredPin !== null) {
                         alert("PIN incorrecto. No se pudo eliminar el equipo.");
                     }
@@ -714,11 +883,26 @@
                 localStorage.setItem('inventarioSistemas', JSON.stringify(inventario));
             }
 
-            function renderTable() {
-                inventarioTableBody.innerHTML = '';
-                inventario.forEach((equipo, index) => addEquipoToTable(equipo, index));
-                filterTable();
+            // --- Scroll to Top functionality ---
+            // Cuando el usuario se desplaza hacia abajo 20px desde la parte superior del documento, muestra el botón
+            window.onscroll = function() {scrollFunction()};
+
+            function scrollFunction() {
+              if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                scrollToTopBtn.style.display = "block";
+              } else {
+                scrollToTopBtn.style.display = "none";
+              }
             }
+
+            // Cuando el usuario hace clic en el botón, desplázate suavemente hacia la parte superior del documento
+            window.topFunction = function() {
+              window.scrollTo({
+                top: 0,
+                behavior: 'smooth' // Esta es la clave para el desplazamiento suave
+              });
+            }
+            // --- End Scroll to Top functionality ---
         });
     </script>
 
