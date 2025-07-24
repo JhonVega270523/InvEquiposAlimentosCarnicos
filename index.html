@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>INVENTARIO</title>
+    <link rel="icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/Grupo-Nutresa-logo-bg.png/1200px-Grupo-Nutresa-logo-bg.png" type="image/png">
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <style>
+        /* Definición de variables CSS para los colores de Nutresa */
+        :root {
+            --nutresa-amarillo: #FFD700; /* Un amarillo vibrante */
+            --nutresa-azul: #007BFF;    /* Azul primario, similar al anterior */
+            --nutresa-rojo: #DC3545;    /* Rojo vibrante */
+            --nutresa-verde: #28A745;  /* Verde vibrante */
+            --nutresa-gris-claro: #f4f4f4;
+            --nutresa-gris-oscuro: #333;
+            --nutresa-blanco: #fff;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--nutresa-gris-claro);
+            color: var(--nutresa-gris-oscuro);
+            line-height: 1.6;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background-color: var(--nutresa-blanco);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            border-bottom: 5px solid var(--nutresa-amarillo); /* Borde inferior amarillo */
+        }
+        header img {
+            max-width: 250px;
+            height: auto;
+            margin-top: -90px;
+            margin-bottom: -90px;
+        }
+        h1 {
+            color: var(--nutresa-gris-oscuro);
+            text-align: center;
+            padding-bottom: 10px;
+            margin-top: 0;
+            margin-bottom: 0;
+        }
+        h2 {
+            color: var(--nutresa-gris-oscuro);
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+            margin-top: 0;
+        }
+        .container {
+            background-color: var(--nutresa-blanco);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            border-left: 5px solid var(--nutresa-verde); /* Borde lateral verde para contenedores */
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            overflow-x: auto; /* Permite scroll horizontal en tablas en móviles */
+            display: block; /* Necesario para overflow-x */
+            white-space: nowrap; /* Evita que el texto se rompa en varias líneas */
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+            vertical-align: top; /* Alinea el contenido de las celdas en la parte superior */
+        }
+        th {
+            background-color: var(--nutresa-azul);
+            color: var(--nutresa-blanco);
+            position: sticky; /* Fija los encabezados al hacer scroll horizontal */
+            left: 0;
+            z-index: 10;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .form-group input[type="text"],
+        .form-group input[type="number"],
+        .form-group select,
+        .form-group input[type="file"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box; /* Incluye padding y border en el width */
+        }
+        .form-group button {
+            background-color: var(--nutresa-verde);
+            color: var(--nutresa-blanco);
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+            margin-right: 10px; /* Espacio entre botones */
+        }
+        .form-group button:hover {
+            background-color: #218838;
+        }
+        .action-buttons button {
+            padding: 5px 10px;
+            margin-right: 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s ease;
+        }
+        .delete-btn {
+            background-color: var(--nutresa-rojo);
+            color: var(--nutresa-blanco);
+        }
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+        .export-import-buttons {
+            display: flex; /* Permite que los botones estén en la misma línea */
+            justify-content: center; /* Centra los botones */
+            gap: 15px; /* Espacio entre los botones */
+            margin-top: 20px;
+            flex-wrap: wrap; /* Permite que los botones se envuelvan en pantallas pequeñas */
+        }
+        .export-import-buttons button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+            white-space: nowrap; /* Evita que el texto del botón se rompa */
+        }
+        .export-btn {
+            background-color: var(--nutresa-azul);
+            color: var(--nutresa-blanco);
+        }
+        .export-btn:hover {
+            background-color: #0056b3;
+        }
+        .import-btn {
+            background-color: #f0ad4e; /* Un naranja para el botón de importar */
+            color: var(--nutresa-blanco);
+        }
+        .import-btn:hover {
+            background-color: #ec971f;
+        }
+
+        /* Estilo para celdas editables */
+        [contenteditable="true"] {
+            border: 1px dashed var(--nutresa-amarillo);
+            background-color: #fffacd;
+            padding: 3px;
+        }
+        [contenteditable="true"]:focus {
+            outline: 1px solid var(--nutresa-azul);
+        }
+        h6 {
+            text-align: right;
+            margin-top: 30px;
+            color: #666;
+        }
+
+        /* Media Queries para responsividad */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            header img {
+                max-width: 180px;
+                margin-top: -60px;
+                margin-bottom: -60px;
+            }
+            .container {
+                padding: 15px;
+            }
+            .form-group input[type="text"],
+            .form-group input[type="number"],
+            .form-group select,
+            .form-group input[type="file"] {
+                width: 100%; /* Ajuste completo en móviles */
+                padding: 8px;
+            }
+            .form-group button {
+                width: 100%;
+                margin-right: 0;
+                margin-bottom: 10px;
+            }
+            .export-import-buttons {
+                flex-direction: column; /* Apila los botones en móviles */
+                align-items: center; /* Centra los botones apilados */
+            }
+            .export-import-buttons button {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+            table {
+                font-size: 14px;
+            }
+            th, td {
+                padding: 6px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            header img {
+                max-width: 150px;
+                margin-top: -50px;
+                margin-bottom: -50px;
+            }
+            h1 {
+                font-size: 24px;
+            }
+            h2 {
+                font-size: 20px;
+            }
+            .form-group label {
+                font-size: 14px;
+            }
+            .form-group button,
+            .export-import-buttons button {
+                font-size: 14px;
+                padding: 8px 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <img src="https://halalamericalatina.com/wp-content/uploads/2021/10/Logo_Mesa-de-trabajo-1.png" alt="Logo Grupo Nutresa">
+        <h1>Inventario de Equipos</h1>
+    </header>
+
+    <div class="container">
+        <h2>Agregar Nuevo Equipo</h2>
+        <form id="equipoForm">
+            <div class="form-group">
+                <label for="tipo">Tipo de Equipo:</label>
+                <select id="tipo" required>
+                    <option value="">Selecciona</option>
+                    <option value="Computador">Computador</option>
+                    <option value="Monitor">Monitor</option>
+                    <option value="Impresora">Impresora</option>
+                    <option value="Servidor">Servidor</option>
+                    <option value="Router">Router</option>
+                    <option value="Switch">Switch</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="nombreEquipo">Nombre de Equipo:</label>
+                <input type="text" id="nombreEquipo" placeholder="Ej: PC-Contabilidad-01" required>
+            </div>
+            <div class="form-group">
+                <label for="marca">Marca:</label>
+                <input type="text" id="marca" placeholder="Ej: Dell, HP, Cisco" required>
+            </div>
+            <div class="form-group">
+                <label for="modelo">Modelo:</label>
+                <input type="text" id="modelo" placeholder="Ej: OptiPlex 3080, LaserJet Pro" required>
+            </div>
+            <div class="form-group">
+                <label for="serial">Número de Serie/Activo Fijo:</label>
+                <input type="text" id="serial" placeholder="Ej: ABC123XYZ, Activo-001" required>
+            </div>
+            <div class="form-group">
+                <label for="ubicacion">Ubicación:</label>
+                <input type="text" id="ubicacion" placeholder="Ej: Oficina 201, Sala de Servidores" required>
+            </div>
+            <div class="form-group">
+                <label for="estado">Estado:</label>
+                <select id="estado" required>
+                    <option value="Operativo">Operativo</option>
+                    <option value="En Mantenimiento">En Mantenimiento</option>
+                    <option value="Dañado">Dañado</option>
+                    <option value="Baja">De Baja</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="observaciones">Observaciones:</label>
+                <input type="text" id="observaciones" placeholder="Ej: Requiere upgrade de RAM">
+            </div>
+            <div class="form-group">
+                <button type="submit">Agregar Equipo</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="container">
+        <h2>Listado de Equipos</h2>
+        <div class="form-group">
+            <label for="searchInput">Buscar en la tabla:</label>
+            <input type="text" id="searchInput" placeholder="Escribe para buscar...">
+        </div>
+        <table id="inventarioTable">
+            <thead>
+                <tr>
+                    <th>Tipo</th>
+                    <th>Nombre de Equipo</th>
+                    <th>Marca</th>
+                    <th>Modelo</th>
+                    <th>Serial/Activo Fijo</th>
+                    <th>Ubicación</th>
+                    <th>Estado</th>
+                    <th>Fecha y Hora Registro</th> <th>Observaciones</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+        <div class="export-import-buttons">
+            <button id="importExcelBtn" class="import-btn">Importar desde Excel</button>
+            <input type="file" id="excelFileInput" accept=".xlsx, .xls" style="display: none;">
+            <button id="exportExcelBtn" class="export-btn">Exportar a Excel</button>
+        </div>
+
+    <h6>Desarrollado por Jhon Loaiza</h6>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const equipoForm = document.getElementById('equipoForm');
+            const inventarioTableBody = document.querySelector('#inventarioTable tbody');
+            const exportExcelBtn = document.getElementById('exportExcelBtn');
+            const importExcelBtn = document.getElementById('importExcelBtn');
+            const excelFileInput = document.getElementById('excelFileInput');
+            const searchInput = document.getElementById('searchInput');
+
+            // --- Define tu PIN de seguridad aquí ---
+            const passwordForActions = "S0p0rt3"; // ¡CAMBIA ESTE PIN por uno más seguro!
+            // ------------------------------------
+
+            // Cargar datos guardados si existen
+            let inventario = JSON.parse(localStorage.getItem('inventarioSistemas')) || [];
+            inventario.forEach((equipo, index) => addEquipoToTable(equipo, index));
+
+            // Evento para agregar nuevo equipo (SIN protección de PIN)
+            equipoForm.addEventListener('submit', (e) => {
+                e.preventDefault(); // Evita el envío del formulario por defecto
+
+                const now = new Date();
+                const fechaRegistro = now.toLocaleString('es-CO', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+
+                const newEquipo = {
+                    tipo: document.getElementById('tipo').value,
+                    nombreEquipo: document.getElementById('nombreEquipo').value,
+                    marca: document.getElementById('marca').value,
+                    modelo: document.getElementById('modelo').value,
+                    serial: document.getElementById('serial').value,
+                    ubicacion: document.getElementById('ubicacion').value,
+                    estado: document.getElementById('estado').value,
+                    fechaRegistro: fechaRegistro, // Agregado automáticamente
+                    observaciones: document.getElementById('observaciones').value
+                };
+
+                inventario.push(newEquipo);
+                saveInventario();
+                addEquipoToTable(newEquipo, inventario.length - 1);
+                equipoForm.reset();
+                filterTable(); // Para asegurar que la tabla se actualice y filtre correctamente
+                alert("¡Equipo agregado exitosamente!"); // Confirmación
+            });
+
+            // --- Funcionalidad de Búsqueda ---
+            searchInput.addEventListener('input', filterTable);
+
+            function filterTable() {
+                const filterText = searchInput.value.toLowerCase();
+                const rows = inventarioTableBody.querySelectorAll('tr');
+
+                rows.forEach(row => {
+                    const cells = Array.from(row.cells);
+                    // Excluye la última celda (acciones) de la búsqueda
+                    const rowContent = cells.slice(0, -1).map(cell => cell.textContent.toLowerCase()).join(' ');
+
+                    if (rowContent.includes(filterText)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            }
+            // --- Fin Funcionalidad de Búsqueda ---
+
+            // --- Funcionalidad de Exportar a Excel con formato (protegido por PIN) ---
+            exportExcelBtn.addEventListener('click', () => {
+                const enteredPin = prompt("Introduce el PIN para exportar a Excel:");
+
+                if (enteredPin === passwordForActions) {
+                    const table = document.getElementById('inventarioTable');
+                    const headerRow = table.querySelector('thead tr');
+                    const bodyRows = inventarioTableBody.querySelectorAll('tr');
+
+                    const headersData = Array.from(headerRow.cells).slice(0, -1).map(th => th.innerText);
+
+                    let bodyData = [];
+                    bodyRows.forEach((row) => {
+                        if (row.style.display !== 'none') {
+                            const cells = Array.from(row.cells);
+                            const rowData = cells.slice(0, -1).map(cell => cell.innerText);
+                            bodyData.push(rowData);
+                        }
+                    });
+
+                    if (bodyData.length === 0) {
+                        alert("No hay datos visibles para exportar.");
+                        return;
+                    }
+
+                    let colWidths = [];
+                    headersData.forEach((headerText, colIndex) => {
+                        const headerLength = headerText ? headerText.toString().length : 0;
+                        colWidths[colIndex] = { wch: headerLength + 2 };
+                    });
+
+                    bodyData.forEach(rowData => {
+                        rowData.forEach((cellText, colIndex) => {
+                            const cellLength = cellText ? cellText.toString().length : 0;
+                            if (!colWidths[colIndex] || cellLength + 2 > colWidths[colIndex].wch) {
+                                colWidths[colIndex].wch = cellLength + 2;
+                            }
+                        });
+                    });
+
+                    const ws = XLSX.utils.aoa_to_sheet([]);
+
+                    const title = "Inventario de Equipos de Sistemas - Grupo Nutresa";
+                    XLSX.utils.sheet_add_aoa(ws, [[title]], { origin: "A1" });
+
+                    if (!ws['!merges']) ws['!merges'] = [];
+                    const numCols = headersData.length;
+                    ws['!merges'].push({ s: { r: 0, c: 0 }, e: { r: 0, c: numCols - 1 } });
+
+                    if (ws['A1']) {
+                        if (!ws['A1'].s) ws['A1'].s = {};
+                        ws['A1'].s.alignment = { horizontal: "center", vertical: "center" };
+                        ws['A1'].s.font = { sz: 14, bold: true };
+                    }
+
+                    XLSX.utils.sheet_add_aoa(ws, [headersData], { origin: "A2" });
+                    XLSX.utils.sheet_add_aoa(ws, bodyData, { origin: "A3" });
+
+                    ws['!cols'] = colWidths;
+
+                    const startRow = 1; // Fila donde inician los encabezados (A2)
+                    const endRow = startRow + bodyData.length + 1; // +1 porque los datos empiezan en A3
+
+                    for (let R = startRow; R < endRow; ++R) { // Recorremos desde los encabezados hasta el final de los datos
+                        for (let C = 0; C < numCols; ++C) {
+                            const cellAddress = XLSX.utils.encode_cell({r:R, c:C});
+                            if (!ws[cellAddress]) ws[cellAddress] = {};
+
+                            if (!ws[cellAddress].s) ws[cellAddress].s = {};
+
+                            ws[cellAddress].s.border = {
+                                top: { style: "thin", color: { rgb: "000000" } },
+                                bottom: { style: "thin", color: { rgb: "000000" } },
+                                left: { style: "thin", color: { rgb: "000000" } },
+                                right: { style: "thin", color: { rgb: "000000" } }
+                            };
+                            ws[cellAddress].s.alignment = {
+                                horizontal: "center",
+                                vertical: "center"
+                            };
+
+                            if (R === 1) { // Fila de encabezados
+                                ws[cellAddress].s.fill = { fgColor: { rgb: "007BFF" } };
+                                ws[cellAddress].s.font = { color: { rgb: "FFFFFF" }, bold: true };
+                            }
+                        }
+                    }
+
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "InventarioEquipos");
+
+                    XLSX.writeFile(wb, "Inventario_Equipos_Sistemas.xlsx");
+                    alert("¡Inventario exportado exitosamente!");
+                } else if (enteredPin !== null) {
+                    alert("PIN incorrecto. No se pudo exportar el inventario.");
+                }
+            });
+            // --- Fin Funcionalidad de Exportar a Excel ---
+
+            // --- Funcionalidad de Importar desde Excel (protegido por PIN) ---
+            importExcelBtn.addEventListener('click', () => {
+                const enteredPin = prompt("Introduce el PIN para importar desde Excel:");
+                if (enteredPin === passwordForActions) {
+                    excelFileInput.click(); // Abre el selector de archivos
+                } else if (enteredPin !== null) {
+                    alert("PIN incorrecto. No se pudo iniciar la importación.");
+                }
+            });
+
+            excelFileInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const sheetName = workbook.SheetNames[0];
+                        const worksheet = workbook.Sheets[sheetName];
+                        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                        if (json.length === 0) {
+                            alert("El archivo Excel está vacío.");
+                            return;
+                        }
+
+                        // Asumiendo que la primera fila son los encabezados, ajusta según tu estructura de Excel
+                        const headers = json[0];
+                        const expectedHeaders = ["Tipo", "Nombre de Equipo", "Marca", "Modelo", "Serial/Activo Fijo", "Ubicación", "Estado", "Fecha y Hora Registro", "Observaciones"];
+
+                        // Validar encabezados (opcional pero recomendado)
+                        const isValidHeader = expectedHeaders.every(header => headers.includes(header));
+                        if (!isValidHeader) {
+                            alert("Los encabezados del archivo Excel no coinciden con el formato esperado. Asegúrate de que las columnas sean: " + expectedHeaders.join(", "));
+                            return;
+                        }
+
+                        // Mapear los datos del JSON a la estructura de tu inventario
+                        const importedData = [];
+                        for (let i = 1; i < json.length; i++) { // Empezar desde la segunda fila (después de los encabezados)
+                            const row = json[i];
+                            const equipo = {};
+                            headers.forEach((header, index) => {
+                                // Normaliza los nombres de las propiedades para que coincidan con tu objeto 'equipo'
+                                let key;
+                                if (header === "Nombre de Equipo") key = "nombreEquipo";
+                                else if (header === "Serial/Activo Fijo") key = "serial";
+                                else if (header === "Fecha y Hora Registro") key = "fechaRegistro";
+                                else if (header === "Observaciones") key = "observaciones";
+                                else key = header.toLowerCase(); // Para "Tipo", "Marca", "Modelo", "Ubicación", "Estado"
+
+                                equipo[key] = row[index] !== undefined ? String(row[index]) : ''; // Convertir a string
+                            });
+                            // Asegura que todos los campos obligatorios existan, si no, pon un valor predeterminado
+                            equipo.tipo = equipo.tipo || '';
+                            equipo.nombreEquipo = equipo.nombreEquipo || '';
+                            equipo.marca = equipo.marca || '';
+                            equipo.modelo = equipo.modelo || '';
+                            equipo.serial = equipo.serial || '';
+                            equipo.ubicacion = equipo.ubicacion || '';
+                            equipo.estado = equipo.estado || 'Operativo'; // Valor predeterminado
+                            equipo.observaciones = equipo.observaciones || '';
+                            // Si la fecha de registro no viene en el Excel, se puede generar al importar
+                            if (!equipo.fechaRegistro || equipo.fechaRegistro === '') {
+                                const now = new Date();
+                                equipo.fechaRegistro = now.toLocaleString('es-CO', {
+                                    year: 'numeric',
+                                    month: '2-digit',
+                                    day: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit'
+                                });
+                            }
+                            importedData.push(equipo);
+                        }
+
+                        // Puedes elegir si fusionar o reemplazar el inventario existente
+                        const confirmImport = confirm("¿Quieres agregar estos " + importedData.length + " equipos al inventario actual?\n(Cancelar reemplazará el inventario actual)");
+                        if (confirmImport) {
+                            inventario = inventario.concat(importedData); // Fusionar
+                        } else {
+                            inventario = importedData; // Reemplazar
+                        }
+
+                        saveInventario();
+                        renderTable();
+                        alert("¡Datos importados exitosamente!");
+                    };
+                    reader.readAsArrayBuffer(file);
+                }
+            });
+            // --- Fin Funcionalidad de Importar desde Excel ---
+
+
+            function addEquipoToTable(equipo, index) {
+                let row;
+                if (inventarioTableBody.rows[index]) {
+                    row = inventarioTableBody.rows[index];
+                } else {
+                    row = inventarioTableBody.insertRow();
+                }
+
+                row.dataset.index = index;
+                row.innerHTML = '';
+
+                const editableFields = ['nombreEquipo', 'marca', 'modelo', 'ubicacion', 'observaciones'];
+                // Incluye 'fechaRegistro' en la lista de campos a mostrar
+                const fields = ['tipo', 'nombreEquipo', 'marca', 'modelo', 'serial', 'ubicacion', 'estado', 'fechaRegistro', 'observaciones'];
+
+                fields.forEach(field => {
+                    const cell = row.insertCell();
+                    cell.textContent = equipo[field];
+                    if (editableFields.includes(field)) {
+                        cell.setAttribute('contenteditable', 'true');
+                        cell.addEventListener('blur', (event) => updateCellValue(event, index, field));
+                    } else if (field === 'estado') {
+                        cell.addEventListener('click', (event) => {
+                            if (cell.querySelector('select')) {
+                                return;
+                            }
+                            const originalValue = cell.textContent;
+                            const select = document.createElement('select');
+                            const options = ["Operativo", "En Mantenimiento", "Dañado", "Baja"];
+                            options.forEach(optionText => {
+                                const option = document.createElement('option');
+                                option.value = optionText;
+                                option.textContent = optionText;
+                                if (optionText === originalValue) {
+                                    option.selected = true;
+                                }
+                                select.appendChild(option);
+                            });
+
+                            select.addEventListener('change', (e) => {
+                                inventario[index].estado = e.target.value;
+                                saveInventario();
+                                cell.textContent = e.target.value;
+                                cell.removeAttribute('contenteditable');
+                                alert("Estado actualizado exitosamente.");
+                            });
+
+                            select.addEventListener('blur', () => {
+                                if (cell.querySelector('select')) {
+                                    cell.textContent = select.value;
+                                    cell.removeAttribute('contenteditable');
+                                }
+                            });
+
+                            cell.textContent = '';
+                            cell.appendChild(select);
+                            select.focus();
+                        });
+                        cell.setAttribute('contenteditable', 'false');
+                    } else if (field === 'fechaRegistro') { // La fecha de registro no es editable
+                        cell.setAttribute('contenteditable', 'false');
+                    }
+                    else {
+                        cell.setAttribute('contenteditable', 'false');
+                    }
+                });
+
+                const actionsCell = row.insertCell();
+                actionsCell.classList.add('action-buttons');
+
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Eliminar';
+                deleteButton.classList.add('delete-btn');
+                deleteButton.addEventListener('click', () => deleteEquipo(index)); // Llama a la función de eliminar con PIN
+                actionsCell.appendChild(deleteButton);
+            }
+
+            // Función para actualizar el valor de una celda (SIN protección de PIN)
+            function updateCellValue(event, index, field) {
+                const newValue = event.target.textContent.trim();
+                const originalValue = inventario[index][field];
+
+                if (originalValue !== newValue) {
+                    inventario[index][field] = newValue;
+                    saveInventario();
+                    alert("Campo actualizado exitosamente.");
+                }
+            }
+
+            // Función para eliminar equipo (protegida por PIN)
+            function deleteEquipo(index) {
+                if (confirm('¿Estás seguro de que quieres eliminar este equipo?')) {
+                    const enteredPin = prompt("Introduce el PIN para eliminar el equipo:");
+
+                    if (enteredPin === passwordForActions) {
+                        inventario.splice(index, 1);
+                        saveInventario();
+                        renderTable();
+                        filterTable();
+                        alert("¡Equipo eliminado exitosamente!");
+                    } else if (enteredPin !== null) {
+                        alert("PIN incorrecto. No se pudo eliminar el equipo.");
+                    }
+                }
+            }
+
+            function saveInventario() {
+                localStorage.setItem('inventarioSistemas', JSON.stringify(inventario));
+            }
+
+            function renderTable() {
+                inventarioTableBody.innerHTML = '';
+                inventario.forEach((equipo, index) => addEquipoToTable(equipo, index));
+                filterTable();
+            }
+        });
+    </script>
+
+</body>
+</html>
