@@ -234,6 +234,43 @@
             background-color: #218838; /* Darker green on hover */
         }
 
+        /* Estilos para el menú de secciones */
+        .section-menu {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            padding: 10px;
+            background-color: var(--nutresa-blanco);
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .section-menu button {
+            background-color: var(--nutresa-azul);
+            color: var(--nutresa-blanco);
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section-menu button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+        .section-menu button.active {
+            background-color: var(--nutresa-verde);
+            font-weight: bold;
+            transform: scale(1.05);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .hidden-section {
+            display: none;
+        }
+
 
         /* Media Queries para responsividad */
         @media (max-width: 768px) {
@@ -280,6 +317,14 @@
                 padding: 12px;
                 font-size: 16px;
             }
+            .section-menu {
+                flex-direction: column;
+                align-items: center;
+                gap: 10px;
+            }
+            .section-menu button {
+                width: 100%;
+            }
         }
 
         @media (max-width: 480px) {
@@ -298,7 +343,8 @@
                 font-size: 14px;
             }
             .form-group button,
-            .export-import-buttons button {
+            .export-import-buttons button,
+            .section-menu button {
                 font-size: 14px;
                 padding: 8px 12px;
             }
@@ -316,7 +362,14 @@
         <h1>Inventario de Equipos</h1>
     </header>
 
-    <div class="container">
+    <div class="section-menu">
+        <button id="showAddEquipo">Agregar Nuevo Equipo</button>
+        <button id="showListadoEquipos" class="active">Listado de Equipos</button>
+        <button id="showImportExcel">Importar desde Excel</button>
+        <button id="showExportExcel">Exportar a Excel</button>
+    </div>
+
+    <div class="container" id="addEquipoSection">
         <h2>Agregar Nuevo Equipo</h2>
         <form id="equipoForm">
             <div class="form-group">
@@ -371,7 +424,7 @@
         </form>
     </div>
 
-    <div class="container">
+    <div class="container" id="listadoEquiposSection">
         <h2>Listado de Equipos</h2>
         <div class="form-group">
             <label for="searchInput">Buscar en la tabla:</label>
@@ -380,7 +433,8 @@
         <table id="inventarioTable">
             <thead>
                 <tr>
-                    <th>N°</th> <th>Tipo</th>
+                    <th>N°</th>
+                    <th>Tipo</th>
                     <th>Nombre de Equipo</th>
                     <th>Marca</th>
                     <th>Modelo</th>
@@ -396,17 +450,31 @@
             </tbody>
         </table>
         <div class="pagination" id="paginationControls">
-            </div>
+        </div>
+    </div>
+
+    <div class="container hidden-section" id="importExcelSection">
+        <h2>Importar desde Excel</h2>
+        <p>Haz clic en el botón para seleccionar un archivo Excel (.xlsx o .xls) y cargar los datos en el inventario. Se te pedirá un PIN de seguridad.</p>
+        <p>Puedes elegir **agregar** los datos del archivo al inventario existente o **reemplazarlo** completamente.</p>
         <div class="export-import-buttons">
             <button id="importExcelBtn" class="import-btn">Importar desde Excel</button>
             <input type="file" id="excelFileInput" accept=".xlsx, .xls" style="display: none;">
+        </div>
+    </div>
+
+    <div class="container hidden-section" id="exportExcelSection">
+        <h2>Exportar a Excel</h2>
+        <p>Genera un archivo Excel (.xlsx) con el inventario actual. Se te pedirá un PIN de seguridad.</p>
+        <p>El archivo incluirá los datos filtrados si has aplicado una búsqueda.</p>
+        <div class="export-import-buttons">
             <button id="exportExcelBtn" class="export-btn">Exportar a Excel</button>
         </div>
-
-    <h6>Desarrollado por Jhon Loaiza</h6>
     </div>
 
     <button onclick="topFunction()" id="scrollToTopBtn" title="Ir arriba">&#9650;</button>
+
+    <h6>Desarrollado por Jhon Loaiza</h6>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
@@ -419,6 +487,19 @@
             const paginationControls = document.getElementById('paginationControls');
             const scrollToTopBtn = document.getElementById('scrollToTopBtn');
 
+            // Nuevas referencias a las secciones y botones del menú
+            const addEquipoSection = document.getElementById('addEquipoSection');
+            const listadoEquiposSection = document.getElementById('listadoEquiposSection');
+            const importExcelSection = document.getElementById('importExcelSection');
+            const exportExcelSection = document.getElementById('exportExcelSection');
+
+            const showAddEquipoBtn = document.getElementById('showAddEquipo');
+            const showListadoEquiposBtn = document.getElementById('showListadoEquipos');
+            const showImportExcelBtn = document.getElementById('showImportExcel');
+            const showExportExcelBtn = document.getElementById('showExportExcel');
+            const sectionMenuButtons = document.querySelectorAll('.section-menu button');
+
+
             // --- Define tu PIN de seguridad aquí ---
             const passwordForActions = "S0p0rt3"; // ¡CAMBIA ESTE PIN por uno más seguro!
             // ------------------------------------
@@ -427,6 +508,45 @@
             let currentPage = 1;
             const itemsPerPage = 20;
             let filteredInventario = []; // Para manejar la paginación después de un filtro
+
+            // Función para mostrar/ocultar secciones
+            function showSection(sectionToShow) {
+                // Oculta todas las secciones
+                addEquipoSection.classList.add('hidden-section');
+                listadoEquiposSection.classList.add('hidden-section');
+                importExcelSection.classList.add('hidden-section');
+                exportExcelSection.classList.add('hidden-section');
+
+                // Muestra la sección seleccionada
+                sectionToShow.classList.remove('hidden-section');
+
+                // Actualiza la clase 'active' en los botones del menú
+                sectionMenuButtons.forEach(button => button.classList.remove('active'));
+                if (sectionToShow === addEquipoSection) {
+                    showAddEquipoBtn.classList.add('active');
+                } else if (sectionToShow === listadoEquiposSection) {
+                    showListadoEquiposBtn.classList.add('active');
+                } else if (sectionToShow === importExcelSection) {
+                    showImportExcelBtn.classList.add('active');
+                } else if (sectionToShow === exportExcelSection) {
+                    showExportExcelBtn.classList.add('active');
+                }
+
+                // Renderiza la tabla si la sección visible es la del listado
+                if (sectionToShow === listadoEquiposSection) {
+                    renderTable();
+                }
+            }
+
+            // Asigna los eventos click a los botones del menú
+            showAddEquipoBtn.addEventListener('click', () => showSection(addEquipoSection));
+            showListadoEquiposBtn.addEventListener('click', () => showSection(listadoEquiposSection));
+            showImportExcelBtn.addEventListener('click', () => showSection(importExcelSection));
+            showExportExcelBtn.addEventListener('click', () => showSection(exportExcelSection));
+
+            // Por defecto, muestra la sección de Listado de Equipos al cargar
+            showSection(listadoEquiposSection);
+
 
             // Funciones de Paginación
             function renderTable() {
@@ -455,7 +575,6 @@
                 const paginatedItems = filteredInventario.slice(startIndex, endIndex);
 
                 paginatedItems.forEach((equipo, relativeIndex) => {
-                    // El número de enumerado real es el índice de la tabla + 1 + el inicio de la página
                     addEquipoToTable(equipo, startIndex + relativeIndex);
                 });
                 renderPaginationButtons(totalPages);
@@ -507,8 +626,8 @@
                 paginationControls.appendChild(nextButton);
             }
 
-            // Llamada inicial para cargar la tabla y la paginación
-            renderTable();
+            // Llamada inicial para cargar la tabla y la paginación (ahora se hace desde showSection)
+            // renderTable();
 
             // Evento para agregar nuevo equipo (SIN protección de PIN)
             equipoForm.addEventListener('submit', (e) => {
@@ -543,6 +662,8 @@
                 renderTable();
                 equipoForm.reset();
                 alert("¡Equipo agregado exitosamente!");
+                // Opcional: Cambiar a la sección de listado después de agregar
+                showSection(listadoEquiposSection);
             });
 
             // --- Funcionalidad de Búsqueda ---
@@ -569,8 +690,8 @@
 
                     // Preparamos los encabezados excluyendo 'N°' y 'Acciones'
                     const headersData = Array.from(headerRow.cells)
-                                        .filter(th => th.textContent !== 'N°' && th.textContent !== 'Acciones')
-                                        .map(th => th.innerText);
+                                            .filter(th => th.textContent !== 'N°' && th.textContent !== 'Acciones')
+                                            .map(th => th.innerText);
 
                     let bodyData = dataToExport.map(equipo => [
                         equipo.tipo,
@@ -754,6 +875,8 @@
                                 currentPage = 1; // Resetear a la primera página después de importar
                                 renderTable();
                                 alert("¡Datos importados exitosamente!");
+                                // Opcional: Cambiar a la sección de listado después de importar
+                                showSection(listadoEquiposSection);
                             } else {
                                 alert("No se encontraron equipos válidos para importar en el archivo Excel.");
                             }
@@ -770,14 +893,11 @@
 
 
             function addEquipoToTable(equipo, globalIndex) {
-                // globalIndex es el índice del equipo en el array 'filteredInventario'
-                // El número de enumerado para mostrar es globalIndex + 1
                 const row = inventarioTableBody.insertRow();
-                row.dataset.index = globalIndex; // Guardamos el índice global para futuras referencias
+                row.dataset.index = globalIndex;
 
-                // Celda del enumerado
                 const numCell = row.insertCell();
-                numCell.textContent = globalIndex + 1; // Muestra el número consecutivo
+                numCell.textContent = globalIndex + 1;
 
                 const editableFields = ['nombreEquipo', 'marca', 'modelo', 'ubicacion', 'observaciones'];
                 const fields = ['tipo', 'nombreEquipo', 'marca', 'modelo', 'serial', 'ubicacion', 'estado', 'fechaRegistro', 'observaciones'];
@@ -807,7 +927,6 @@
                             });
 
                             select.addEventListener('change', (e) => {
-                                // Encuentra el índice real en el inventario no filtrado si es necesario
                                 const realIndex = inventario.findIndex(item => item === filteredInventario[globalIndex]);
                                 if (realIndex !== -1) {
                                     inventario[realIndex].estado = e.target.value;
@@ -847,7 +966,6 @@
 
             function updateCellValue(event, globalIndex, field) {
                 const newValue = event.target.textContent.trim();
-                // Necesitamos el índice real en el array 'inventario'
                 const realIndex = inventario.findIndex(item => item === filteredInventario[globalIndex]);
 
                 if (realIndex !== -1 && inventario[realIndex][field] !== newValue) {
@@ -862,13 +980,12 @@
                     const enteredPin = prompt("Introduce el PIN para eliminar el equipo:");
 
                     if (enteredPin === passwordForActions) {
-                        // Primero, encuentra el elemento real en el inventario no filtrado
                         const realIndex = inventario.findIndex(item => item === filteredInventario[globalIndex]);
 
                         if (realIndex !== -1) {
                             inventario.splice(realIndex, 1);
                             saveInventario();
-                            renderTable(); // Vuelve a renderizar toda la tabla para ajustar la paginación y números
+                            renderTable();
                             alert("¡Equipo eliminado exitosamente!");
                         } else {
                             alert("Error: El equipo no se encontró en el inventario.");
@@ -884,7 +1001,6 @@
             }
 
             // --- Scroll to Top functionality ---
-            // Cuando el usuario se desplaza hacia abajo 20px desde la parte superior del documento, muestra el botón
             window.onscroll = function() {scrollFunction()};
 
             function scrollFunction() {
@@ -895,11 +1011,10 @@
               }
             }
 
-            // Cuando el usuario hace clic en el botón, desplázate suavemente hacia la parte superior del documento
             window.topFunction = function() {
               window.scrollTo({
                 top: 0,
-                behavior: 'smooth' // Esta es la clave para el desplazamiento suave
+                behavior: 'smooth'
               });
             }
             // --- End Scroll to Top functionality ---
